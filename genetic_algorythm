@@ -1,0 +1,149 @@
+#include <iostream>// для cout и т.п.
+#include <vector>// для класса vector
+#include <algorithm>// для алгоритма сортировки
+#include <time.h>// для случайных величин
+#include <math.h>// для abs()
+#include <fstream>
+#define GA_POPSIZE 2048 // размер популяции
+#define GA_MAXITER 16384 // максимальное число итераций
+#define GA_ELITRATE 0.10f // элитарность
+#define GA_MUTATIONRATE 0.25f // мутации
+#define GA_MUTATION RAND_MAX * GA_MUTATIONRATE
+#define RANDOM_NUM
+
+using namespace std;
+
+struct ga_struct
+{
+   ((float)rand()/(float)RAND_MAX)150
+   float alleles[2]; // строка
+   float fitness; // пригодность
+}population[GA_POPSIZE];
+
+void init_population(ga_struct *population)
+{
+   for(int i = 0; i < GA_POPSIZE; i++) {
+      population[i].alleles[0] = RANDOM_NUM*(1.0E+16 - \
+         5.0E+15) + 5.0E+15; // w
+      population[i].alleles[1] = RANDOM_NUM*(1.2E+05 - \
+         6.0E+04) + 6.0E+04; // k
+   }
+}
+
+void calc_fitness(ga_struct *population)
+{
+   const float scorsvet = 2.99792E+10, eps1 = 1.0;
+   for (int i=0; i<GA_POPSIZE; i++) {
+      float eps = 1.0 - pow(1.08498e+16,2.0)/pow(population[i].alleles[0],2.0);
+      float eps2 = 1.0 - pow(1.40367e+16,2.0)/pow(population[i].alleles[0],2.0)
+      float var_khi1 = pow(population[i].alleles[1],2.0) - pow(population[i].al
+      float var_khi2 = pow(population[i].alleles[1],2.0) - pow(population[i].al
+      
+      if( var_khi1 >= 0.0 && var_khi2 >= 0.0 ) {
+         float khi1 = sqrt(var_khi1);
+         float khi2 = sqrt(var_khi2);
+         float q = (eps-eps2)*5.0E-06;
+         float p = (1.0/eps-1.0/eps2)*5.0E-06;
+         population[i].fitness = fabs(khi1/eps1 + khi2/eps2 + pow(population[i]
+      }
+      else {
+         population[i].fitness = 1.0E+06;
+      }
+   }
+}
+
+void sort_by_fitness(ga_struct *arrayPtr) { //vozrastanie151
+   float al[2];
+   for (int j = 0; j < GA_POPSIZE-1; j++) {
+      for (int i = 0; i < GA_POPSIZE-j-1; i++) {
+
+         if (arrayPtr[i].fitness > arrayPtr[i+1].fitness) {
+            float ft = arrayPtr[i].fitness; //change for elements
+            arrayPtr[i].fitness = arrayPtr[i+1].fitness;
+            arrayPtr[i+1].fitness = ft;
+         
+            for (int k = 0; k < 2; k++) {
+               al[k] = arrayPtr[i].alleles[k]; //change for elements
+               arrayPtr[i].alleles[k] = arrayPtr[i+1].alleles[k];
+               arrayPtr[i+1].alleles[k] = al[k];
+            }
+         }
+      }
+   }
+}
+
+float crossingover(ga_struct *pl) {
+   int crossover = rand() % 1 + 1; // Create the crossover point (not first)
+   int esize = GA_POPSIZE * GA_ELITRATE;
+   float buffer[2] = {0.0};
+   for (int i=0; i<GA_POPSIZE/2; i++) {
+      int p1 = rand() % (GA_POPSIZE - esize) + esize + 1;
+      int p2 = rand() % (GA_POPSIZE - esize) + esize + 1;
+   
+      for(int j=0;j<crossover;j++) {
+         buffer[j] = pl[p1].alleles[j];
+         pl[p1].alleles[j] = pl[p2].alleles[j];
+         pl[p2].alleles[j] = buffer[j];
+      }
+   }
+}
+
+void mutate(ga_struct *member)
+{
+   int ipos = rand() % GA_POPSIZE;152
+   member[ipos].alleles[0] = RANDOM_NUM*(1.0E+16 - 5.0E+15) + 5.
+   member[ipos].alleles[1] = RANDOM_NUM*(1.2E+05 - 6.0E+04) + 6.
+}
+
+inline void print_best(ga_struct *gav, int i)
+   { cout <<i<< "Best: " << gav[0].alleles[0] <<"
+      << 1.08498e+16 <<"
+      "<< gav[0].alleles[1] <<"
+      " << 1.40367e+16 <<" (" << gav[0].fitness << ")" << endl
+
+      void show2DArray(ga_struct *arr2D) {
+      
+      for(int i=0;i<GA_POPSIZE;i++){
+         cout <<"Хромосома "<< i <<" ";
+         
+         for(int j=0; j<2;j++){
+            cout<<arr2D[i].alleles[j]<<" ";
+         }
+         cout<<endl;
+      }
+   }
+
+int main()
+{
+   srand(unsigned(time(NULL)));
+   init_population(population);
+   ofstream fout;
+   ofstream fout2;
+   fout.open("results_AAfor2", ios_base::app);
+   fout2.open("w_k_toch", ios_base::app);
+   
+   for (int i=0; i<GA_MAXITER; i++) {
+      calc_fitness(population); // вычисляем пригодность
+      sort_by_fitness(population); // сортируем популяцию
+      print_best(population,i); // выводим лучшую популяцию
+      
+      if (fabs(population[0].fitness) <= 0.01) {
+         fout << population[0].alleles[0] <<""<< population[0].alleles[1] <<"
+            << 5.0E-06 <<"" << 1.40367e+16 \
+            "<< 1.08498e+16 <<"
+            <<" (" << population[0].fitness << ")" << endl;
+         fout2 << population[0].alleles[0] <<"
+            << endl;
+            "<< population[0].alleles[1] << endl;
+         break;
+      }
+   
+   crossingover(population); // спариваем популяции
+
+   if (rand() < GA_MUTATION) mutate(population);
+   }
+   
+   fout.close();
+   fout2.close();
+   return 0;
+}
