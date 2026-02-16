@@ -1,0 +1,156 @@
+subroutine eps_culc()
+! *****************************************************
+! Calculates the real part of dielectric tensor
+!*******************************INPUT****************
+! complex(kind=cp) SME		: Summ of Matrix Elements
+!****************************OUTPUT****************** !complex(kind=cp) eps		: dielectric constant
+!****************************************************
+      implicit none
+integer(kind=1) iq, jq
+real(kind=dp) df
+complex(kind=cp), dimension(3,3) :: SME, eps
+complex(kind=cp), dimension(3,nwflist,1) :: Mnmp, Mnmm
+
+open(20, file='../Results/eps')
+open(21, file='../Results/epsk')
+open(22, file='../Results/k_vcts')
+	call matel(Mnmp,Mnmm,k)
+write(22, *) ik,k(1),k(2),k(3)
+w = 1.0E+14_dp
+do while (w .lt. 20.0E+14_dp)
+ do iq=1,3
+  do jq=1,3
+   call deltf(df,iq,jq)
+   call sum_matel(SME,iq,jq,Mnmp,Mnmm)
+   eps(iq,jq) = (1.0_dp - 4.0_dp*pi/(w**2.0_dp*V)*Nel*e**2.0_dp/mass)*df - &
+		4.0_dp*pi*scorsvet**2.0_dp/(w**2.0_dp*V*h)*SME(iq,jq)
+  enddo
+ enddo
+ write(20, '(19e20.8)') w, &
+				eps(1,1),eps(1,2),eps(1,3), &
+				eps(2,1),eps(2,2),eps(2,3), &
+				eps(3,1),eps(3,2),eps(3,3)
+ if(w .eq. 6.0E+14_dp) then
+  write(21, '(21e20.8)') k(1),k(2),k(3), &
+				eps(1,1),eps(1,2),eps(1,3), &
+				eps(2,1),eps(2,2),eps(2,3), &
+				eps(3,1),eps(3,2),eps(3,3)
+ endif
+ w = w + 0.1E+14_dp
+enddo
+write(20, *) ' '
+write(20, *) ' '
+      end subroutine eps_culc
+
+Модуль sum_matel
+module m_sum_matel
+
+      use precision, only : dp, cp
+      use m_PSI_function
+      use m_maths
+
+      implicit none
+
+	integer ik, nwflist, nuotot
+	real(kind=dp) w, k_vect, k(3)
+	integer(kind=1), parameter :: Nel=8				! Number of electrons
+	real(kind=dp),   parameter :: e=4.80324E-10_dp			! statkulon
+	real(kind=dp),   parameter :: h=1.054571800E-27_dp		! erg*s
+	real(kind=dp),   parameter :: mass=9.10938356E-28_dp		! gramm	
+	real(kind=dp),   parameter :: scorsvet=2.99792458E10_dp		! sm/s
+	real(kind=dp),   parameter :: V=(11.819952E-8_dp)**3.0_dp	! sm**3
+!	real(kind=dp),   parameter :: a_cell=2.87E-8_dp			! sm
+	real(kind=dp), allocatable, dimension(:) :: energy		! eV
+
+      CONTAINS
+
+      subroutine sum_matel(SME,iq,jq,Mnmp,Mnmm)
+!****************************************************
+! Calculates the Summ of Matrix Elements
+!********************************INPUT***************
+! complex(kind=cp) Mnmp		: array of matrix elements with +k
+! complex(kind=cp) Mnmm		: array of matrix elements with -k
+!****************************OUTPUT******************
+! complex(kind=cp) SME		: Summ of Matrix Elements
+!****************************************************
+        implicit none
+	integer(kind=1) iq, jq
+	integer n, m
+	real(kind=dp), dimension(nwflist) :: w1
+	complex(kind=cp), dimension(3,3) :: SME
+	complex(kind=cp), dimension(3,nwflist,1) :: Mnmp, Mnmm
+	SME = (0.0_dp,0.0_dp)
+	do n = 1,nwflist
+ 	 w1(n) = energy(n)*1.60217653E-12_dp/h
+ 	 do m = 1,1
+  	  w1(m) = energy(m)*1.60217653E-12_dp/h
+ 	  if(n.ne.m) then
+ 	   SME(iq,jq) = SME(iq,jq) + CONJG(Mnmp(iq,n,m))*Mnmp(jq,n,m)/(w-w1(n)+w1(m)) - &
+					Mnmm(iq,n,m)*CONJG(Mnmm(jq,n,m))/(w+w1(n)-w1(m))
+	  endif
+	 enddo
+	enddo
+      end subroutine sum_matel
+
+
+      subroutine matel(Mnmp,Mnmm,k)
+!****************************************************
+! Calculates the array of matrix elements with +/-k
+!********************************INPUT***************
+! complex(kind=cp) PSI		: wave function of the level
+! complex(kind=cp) dPSI		: derivative of wave function of the level
+! complex(kind=cp) func_norm	: <PSI(n)|PSI(m)>, normalisation integral
+!********************************OUTPUT**************
+! complex(kind=cp) Mnmp		: array of matrix elements with +k
+! complex(kind=cp) Mnmm		: array of matrix elements with -k
+!****************************************************
+        implicit none
+
+	integer n, m
+	integer(kind=4) j, t, al
+	real(kind=dp) k(3)
+	real(kind=dp), dimension(nr) :: r
+	complex(kind=cp), dimension(3,nwflist,1) :: Mnmp, Mnmm
+	complex(kind=cp), dimension(nr,nt,nal) :: funcpx, funcmx, funcpy, funcmy, funcpz, funcmz, func_norm
+	complex(kind=cp), dimension(nwflist,nr,nt,nal) :: PSI, dPSIx, dPSIy, dPSIz
+
+	call PSIf(PSI,dPSIx,dPSIy,dPSIz,nwflist,nuotot)
+	k(1) = k(1)/a0
+	k(2) = k(2)/a0
+	k(3) = k(3)/a0
+	k_vect = sqrt(k(1)**2.0_dp+k(2)**2.0_dp+k(3)**2.0_dp)
+	do j=1,nr
+	 r(j) = (j-1)*0.02_8*a0
+	enddo
+	 do n=1,nwflist
+	  do m=1,1
+	   do j=1,nr
+  	    do t=1,nt
+    	     do al=1,nal
+funcpx(j,t,al) = CONJG(PSI(n,j,t,al))*exp(im*k_vect*r(j))*(k(1)*PSI(m,j,t,al) - &
+		2.0_dp*im*dPSIx(m,j,t,al))*r(j)**2.0_dp*sin(tetta(t))
+funcmx(j,t,al) = CONJG(PSI(n,j,t,al))*exp(-im*k_vect*r(j))*(-k(1)*PSI(m,j,t,al) - &
+		2.0_dp*im*dPSIx(m,j,t,al))*r(j)**2.0_dp*sin(tetta(t))
+funcpy(j,t,al) = CONJG(PSI(n,j,t,al))*exp(im*k_vect*r(j))*(k(2)*PSI(m,j,t,al) - &
+		2.0_dp*im*dPSIy(m,j,t,al))*r(j)**2.0_dp*sin(tetta(t))
+funcmy(j,t,al) = CONJG(PSI(n,j,t,al))*exp(-im*k_vect*r(j))*(-k(2)*PSI(m,j,t,al) - &
+		2.0_dp*im*dPSIy(m,j,t,al))*r(j)**2.0_dp*sin(tetta(t))
+funcpz(j,t,al) = CONJG(PSI(n,j,t,al))*exp(im*k_vect*r(j))*(k(3)*PSI(m,j,t,al) - &
+		2.0_dp*im*dPSIz(m,j,t,al))*r(j)**2.0_dp*sin(tetta(t))
+funcmz(j,t,al) = CONJG(PSI(n,j,t,al))*exp(-im*k_vect*r(j))*(-k(3)*PSI(m,j,t,al) - &
+		2.0_dp*im*dPSIz(m,j,t,al))*r(j)**2.0_dp*sin(tetta(t))
+func_norm(j,t,al) = CONJG(PSI(n,j,t,al))*PSI(m,j,t,al)*r(j)**2.0_dp*sin(tetta(t))
+	     enddo
+	    enddo
+	   enddo
+Mnmp(1,n,m) = (-Nel*e*h/(2.0_dp*mass*scorsvet))*(integral(funcpx,nr,nt,nal))/(integral(func_norm,nr,nt,nal))
+Mnmm(1,n,m) = (-Nel*e*h/(2.0_dp*mass*scorsvet))*(integral(funcmx,nr,nt,nal))/(integral(func_norm,nr,nt,nal))
+Mnmp(2,n,m) = (-Nel*e*h/(2.0_dp*mass*scorsvet))*(integral(funcpy,nr,nt,nal))/(integral(func_norm,nr,nt,nal))
+Mnmm(2,n,m) = (-Nel*e*h/(2.0_dp*mass*scorsvet))*(integral(funcmy,nr,nt,nal))/(integral(func_norm,nr,nt,nal))
+Mnmp(3,n,m) = (-Nel*e*h/(2.0_dp*mass*scorsvet))*(integral(funcpz,nr,nt,nal))/(integral(func_norm,nr,nt,nal))
+Mnmm(3,n,m) = (-Nel*e*h/(2.0_dp*mass*scorsvet))*(integral(funcmz,nr,nt,nal))/(integral(func_norm,nr,nt,nal))
+  	  enddo
+	 enddo
+      end subroutine matel
+
+end module m_sum_matel
